@@ -15,16 +15,28 @@ Bioconductor version 3.16 (BiocManager 1.30.19), R 4.2.2 (2022-10-31)
 
 The following R packages should be installed:
 ggplot2_3.5.0
-
 RColorBrewer_1.1_3
-
 colortools_0.1.5
-
 gplots_3.1.3.1
-
 RColorBrewer_1.1_3
-
 lme4_1.1_33
+
+The following R packages should be installed:
+GenomicRanges_1.50.2
+Rsamtools_2.14.0
+rtracklayer_1.58.0
+IRanges_2.32.0
+geneplotter_1.76.0
+multtest_2.54.0
+mclust_6.0.0
+knitr_1.42
+edgeR_3.40.2
+topGO_2.50.0         
+SparseM_1.81         
+graph_1.76.0         
+plotly_4.10.1
+fitdistrplus_1.1-8
+GO.db_3.16.0 
 
 ## Repo Content
 * [data](./data): folder containing the data for examples matrix of gene expression; etc. Raw fluorescent microscopy data will be deposited publicly on EBI.

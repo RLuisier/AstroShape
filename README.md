@@ -15,10 +15,15 @@ Bioconductor version 3.16 (BiocManager 1.30.19), R 4.2.2 (2022-10-31)
 
 The following R packages should be installed:
 ggplot2_3.5.0
+
 RColorBrewer_1.1_3
+
 colortools_0.1.5
+
 gplots_3.1.3.1
+
 RColorBrewer_1.1_3
+
 lme4_1.1_33
 
 ## Repo Content
@@ -37,7 +42,7 @@ Fluorescent micropscopy data. iPSC-derived astrocytes were cultured in 96-well p
 Half of the astrocytes were transfected with a GFP under the CMV promoter which provides the highest expression activity in the broadest range of cell types. Only half of the plated cells contain the GFP in order to be able to detect cells. 
 
 ## Analysis and results
-The analysis of the read count and samples is presented in the [preprocessing analysis](https://htmlpreview.github.io/?https://github.com/RLuisier/AxonLoc/blob/main/1_overview_data.html) that relates to Supplementary Figure 1.
+The analysis is presented in the [preprocessing analysis](https://htmlpreview.github.io/?https://github.com/RLuisier/AxonLoc/blob/main/1_overview_data.html) that relates to  Figure 1 and Supplementary Figure 1.
 
 ## Related publication
 This work has been published in Genome Research (doi: 10.1101/gr.277804.123).

@@ -37,10 +37,10 @@ Fluorescent micropscopy data. iPSC-derived astrocytes were cultured in 96-well p
 Half of the astrocytes were transfected with a GFP under the CMV promoter which provides the highest expression activity in the broadest range of cell types. Only half of the plated cells contain the GFP in order to be able to detect cells. 
 
 ## Analysis and results
-The analysis is presented in the [preprocessing analysis](https://htmlpreview.github.io/?https://github.com/RLuisier/AxonLoc/blob/main/1_overview_data.html) that relates to  Figure 1 and Supplementary Figure 1.
+The analysis is presented in the [statistical analysis of morphological changes](https://github.com/RLuisier/AstroShape/blob/main/scripts/AC_morpho_profiling.md) that relates to  Figure 1 and Supplementary Figure 1.
 
 ## Related publication
-This work has been published in Genome Research (doi: 10.1101/gr.277804.123).
+This work has been published in BioarXiv (doi: XX).
 
 
 

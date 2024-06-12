@@ -13,12 +13,12 @@ This repository contains the source code to reproduce some of the figures of the
 ### R
 Bioconductor version 3.16 (BiocManager 1.30.19), R 4.2.2 (2022-10-31)
 
-The following R packages should be installed:
-ggplot2_3.5.0
-RColorBrewer_1.1_3
-colortools_0.1.5
-gplots_3.1.3.1
-RColorBrewer_1.1_3
+The following R packages should be installed:<br>
+ggplot2_3.5.0<br>
+RColorBrewer_1.1_3<br>
+colortools_0.1.5<br>
+gplots_3.1.3.1<br>
+RColorBrewer_1.1_3<br>
 lme4_1.1_33
 
 ## Repo Content

@@ -97,9 +97,11 @@ downstream analysis.
     ##  [7] "AreaShape_MaxFeretDiameter"   "AreaShape_MaximumRadius"     
     ##  [9] "AreaShape_MeanRadius"         "AreaShape_MedianRadius"      
     ## [11] "AreaShape_MinFeretDiameter"   "AreaShape_MinorAxisLength"   
-    ## [13] "AreaShape_Perimeter"          "AreaShape_Zernike_3_3"       
-    ## [15] "AreaShape_Zernike_5_5"        "AreaShape_Zernike_7_7"       
-    ## [17] "AreaShape_Zernike_9_9"
+    ## [13] "AreaShape_Perimeter"          "AreaShape_Zernike_0_0"       
+    ## [15] "AreaShape_Zernike_1_1"        "AreaShape_Zernike_3_3"       
+    ## [17] "AreaShape_Zernike_4_0"        "AreaShape_Zernike_5_5"       
+    ## [19] "AreaShape_Zernike_7_7"        "AreaShape_Zernike_8_4"       
+    ## [21] "AreaShape_Zernike_9_9"
 
 #### 4.2. Inspect correlation between variables extracted from fluorescent images
 
@@ -122,6 +124,9 @@ SVD on the raw data:
 
 SVD on the normalised data:
 ![](AC_morpho_profiling_files/figure-gfm/SVD_norm_data-1.jpeg)<!-- -->
+
+Let’s focus on the replicates of PC1:
+![](AC_morpho_profiling_files/figure-gfm/PC1_focus-1.jpeg)<!-- -->
 
 Looking at the scree plots confirm that the firts coomponent captures
 most of the variance in morphological changes:
@@ -151,3 +156,11 @@ components (PC1 and PC2). As expected FGF effect is a poor explanatory
 variable.
 
 ![](AC_morpho_profiling_files/figure-gfm/linear_mixed_model_time_effect-1.jpeg)<!-- -->
+
+Next we can focus on PC1,2 and 5:
+
+![](AC_morpho_profiling_files/figure-gfm/linear_mixed_model_time_effect_2-1.jpeg)<!-- -->
+
+Finally we can look into the individual measurements:
+
+![](AC_morpho_profiling_files/figure-gfm/look_into_individual_measurements-1.jpeg)<!-- -->![](AC_morpho_profiling_files/figure-gfm/look_into_individual_measurements-2.jpeg)<!-- -->

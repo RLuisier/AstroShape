@@ -1,0 +1,647 @@
+---
+title: "Single-cell morphological profiling and analysis of astrocyte terminal differentiation"
+author: "Raphaëlle Luisier, Idiap Research Institute, Martigny, Switzerland"
+date: "June 2024"
+output:
+  github_document:
+    toc: true
+    toc_depth: 6
+    dev: jpeg
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=16, fig.height=10, figure.align = "center") 
+library(ggplot2) # devtools::install_github('hadley/ggplot2')
+library(RColorBrewer)
+#library(wesanderson)
+library(colortools)
+#library(knitr)
+#library(GenomeInfoDb)
+#library(mclust)
+#library(geneplotter)
+#library(limma)
+require(gplots)
+#library(ape)
+#library(lme4)
+#library(nlme)
+#library(topGO)
+#library(org.Hs.eg.db)
+#library(rtracklayer)
+#library(corrplot)
+#library(beeswarm)
+#library(preprocessCore)
+#library(dream)
+#library(remotes)
+#library(variancePartition)
+#library(statmod)
+#library(edgeR)
+#library(ggcorrplot)
+#library(corrplot)
+library(RColorBrewer)
+library(lme4)
+
+warning = FALSE
+```
+
+```{r functions_of_interest,eval=TRUE,echo=FALSE}
+funCor <- function(x,y){
+    x<-x-mean(x)
+    y<-y-mean(y)
+    return((x%*%y)/(sqrt(x%*%x)*sqrt(y%*%y)))
+}
+
+
+plotPCi<- function(i=1){
+  par(mfrow=c(2,3))
+  vi            <- SVD_eset$v
+  rownames(vi)  <- colnames(data_p1)
+  contr         <- sort(vi[sort(abs(vi[,i]),decreasing=T,index.return=T)$ix[c(1:4)],i],decreasing=F)  
+  par(mar=c(3,14,3,3))
+  barplot(contr,horiz=TRUE,las=1,cex.names=1.2,col="black",cex.axis=0.5,cex=0.5)   
+  par(mar=c(4,4,3,3))
+  boxplot(SVD_eset$u[,i]~metadata_p1$Treatment,col=cols_treatments,outline=F,las=1,frame=F,xlab="treatment",ylab=paste("PC",i))
+  grid()
+  abline(h=0,lwd=1.2,lty=2)
+  
+  boxplot(SVD_eset$u[,i]~metadata_p1$days,col=mycols_days,outline=F,las=1,frame=F,xlab="treatment",ylab=paste("PC",i))
+  grid()
+  abline(h=0,lwd=1.2,lty=2)
+  temp_stats<-boxplot(SVD_eset$u[,i]~metadata_p1$Treatment,plot=FALSE)$stats
+  tapply(c(1:nrow(metadata_p1)),INDEX=metadata_p1$Treatment,FUN=function(IX){
+  boxplot(tapply(X=SVD_eset$u[IX,i],INDEX=factor(metadata_p1$days[IX],levels=c(0,3,6,9)),FUN=function(Z)return(Z)),col=mycols_treat_days[[match(unique(as.character(metadata_p1$Treatment[IX])),names(mycols_treat_days))]],outline=F,las=1,frame=F,xlab="days",ylab=paste("PC",i),main=unique(metadata_p1$Treatment[IX]),ylim=c(min(temp_stats),max(temp_stats)))
+  grid()
+  abline(h=0,lwd=1.2,lty=2)
+  })
+}
+
+
+
+
+
+
+plotScatterPCi<-function(CEX=0.2,comps=c(1,2,3)){
+  layout(matrix(c(c(1:length(comps)^2),rep(length(comps)^2+1,length(comps))),ncol=length(comps),nrow=length(comps)+1,byrow=TRUE))
+  par(mar=c(4,4,1,1),oma=c(2,2,2,2))
+  for(i in comps){
+    for(j in comps){
+      if(j>=i){
+      plot(SVD_eset$u[,i],SVD_eset$u[,j],col=mycols_treatments,pch=19,cex=CEX,las=1,frame=F,xlab=paste("PC",i),ylab=paste("PC",j))
+      grid()
+      }
+      else{
+      plot(SVD_eset$u[,j],SVD_eset$u[,i],col=mycols_time,pch=19,cex=CEX,las=1,frame=F,xlab=paste("PC",j),ylab=paste("PC",i))
+      grid()
+      }
+    }
+  }
+  plot(1, type = "n", axes=FALSE, xlab="", ylab="")
+  legend("top",ncol=7,col=c(cols_treatments,mycols_days_p),leg=c(names(cols_treatments),names(mycols_days_p)),bty="n",pch=19,cex=1.5)
+}
+
+
+add.alpha <- function(col, alpha=1){
+  if(missing(col))
+    stop("Please provide a vector of colours.")
+  apply(sapply(col, col2rgb)/255, 2, 
+                     function(x) 
+                       rgb(x[1], x[2], x[3], alpha=alpha))  
+}
+
+PlotPCTime <- function(i=1,LEG=TRUE,withSD=FALSE){
+  layout(matrix(c(1,1,2,4,3,5),ncol=3,nrow=2,byrow=FALSE))
+  days=as.numeric(levels(dat1$days))
+  mat  <- matrix(mymean_cond_time[,i],ncol=length(levels(dat1$days)),nrow=4,byrow=TRUE)
+  mats <- matrix(mysd_cond_time[,i],ncol=length(levels(dat1$days)),nrow=4,byrow=TRUE)
+  plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(min(mat),max(mat)),ylab=paste("PC",i),main=paste(round(100*pip[i],digit=2),"% variance"))
+  for(j in c(1:4)){
+    points(days,mat[j,],col=cols_treatments[j],pch=19,cex=1.2)
+    lines(days,mat[j,],col=cols_treatments[j])  
+    if(LEG){legend("top",ncol=2,pch=18,col=cols_treatments,leg=names(cols_treatments),bty="n")}
+  }
+  grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+  abline(h=0)
+  
+  myT=1
+  
+  for(j in levels(dat1$Treatment)){#the order of the columns is not correct
+    IXR  <- grep(pattern=j,rownames(mymean_well_time))
+    mat  <-  matrix(mymean_well_time[IXR,i],ncol=length(levels(dat1$days)),nrow=length(IXR)/length(levels(dat1$days)),byrow=FALSE)
+    mats <-  matrix(mysd_well_time[IXR,i],ncol=length(levels(dat1$days)),nrow=length(IXR)/length(levels(dat1$days)),byrow=FALSE)
+    MIN=min(mymean_well_time[,i])
+    MAX=max(mymean_well_time[,i])
+    plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(MIN,MAX),ylab=paste("PC",i),main=j)
+    for(k in c(1:nrow(mat))){
+      points(days,mat[k,],col=cols_treatments[myT],pch=19,cex=1.2)
+      lines(days,mat[k,],col=cols_treatments[myT])
+      if(withSD){error.bar(x=days, y=mat[k,], upper=mats[k,], length=0.05,col=cols_treatments[myT])}
+    }
+    grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+    abline(h=0)
+     myT=myT+1
+  }
+}
+
+PlotMeasurements <- function(myval="AreaShape_Compactness",LEG=TRUE,withSD=FALSE){
+  layout(matrix(c(1,1,2,4,3,5),ncol=3,nrow=2,byrow=FALSE))
+  days=as.numeric(levels(dat1$days))
+  ixcol <- match(myval,colnames(mymean_dat_cond_time))
+  mat  <- matrix(mymean_dat_cond_time[,ixcol],ncol=length(levels(dat1$days)),nrow=4,byrow=TRUE)
+  mats <- matrix(mysd_dat_cond_time[,ixcol],ncol=length(levels(dat1$days)),nrow=4,byrow=TRUE)
+  plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(min(mat),max(mat)),ylab=myval,main="average across wells")
+  for(j in c(1:4)){
+    points(days,mat[j,],col=cols_treatments[j],pch=19,cex=1.2)
+    lines(days,mat[j,],col=cols_treatments[j]) 
+    #error.bar(x=days, y=mat[j,], upper=mats[j,], length=0.05,col=cols_treatments[j])
+    if(LEG){legend("top",ncol=2,pch=18,col=cols_treatments,leg=names(cols_treatments),bty="n")}
+  }
+  grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+  abline(h=0)
+  
+  myT=1
+  
+  for(j in levels(dat1$Treatment)){#the order of the columns is not correct
+    IXR  <- grep(pattern=j,rownames(mymean_well_time))
+    mat  <-  matrix(mymean_dat_well_time[IXR,ixcol],ncol=length(levels(dat1$days)),nrow=length(IXR)/length(levels(dat1$days)),byrow=FALSE)
+    mats <-  matrix(mysd_dat_well_time[IXR,ixcol],ncol=length(levels(dat1$days)),nrow=length(IXR)/length(levels(dat1$days)),byrow=FALSE)
+    MIN=min(mymean_dat_well_time[,ixcol])
+    MAX=max(mymean_dat_well_time[,ixcol])
+    plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(MIN,MAX),ylab="",main=j)
+    for(k in c(1:nrow(mat))){
+      points(days,mat[k,],col=cols_treatments[myT],pch=19,cex=1.2)
+      lines(days,mat[k,],col=cols_treatments[myT])
+      if(withSD){error.bar(x=days, y=mat[k,], upper=mats[k,], length=0.05,col=cols_treatments[myT])}
+    }
+    grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+    abline(h=0)
+     myT=myT+1
+  }
+}
+
+
+PlotMeasurementsLines <- function(myval="AreaShape_Compactness",LEG=TRUE,withSD=FALSE){
+  days=as.numeric(levels(dat1$days))
+  ixcol <- match(myval,colnames(mymean_dat_cond_time))
+  mat  <- matrix(mymean_dat_cond_time[,ixcol],ncol=length(levels(dat1$days)),nrow=4,byrow=TRUE)
+  mats <- matrix(mysd_dat_cond_time[,ixcol],ncol=length(levels(dat1$days)),nrow=4,byrow=TRUE)
+  myT=1
+  
+  for(j in levels(dat1$Treatment)){#the order of the columns is not correct
+    IXR  <- grep(pattern=j,rownames(mymean_well_time))
+    mat  <-  matrix(mymean_dat_well_time[IXR,ixcol],ncol=length(levels(dat1$days)),nrow=length(IXR)/length(levels(dat1$days)),byrow=FALSE)
+    mats <-  matrix(mysd_dat_well_time[IXR,ixcol],ncol=length(levels(dat1$days)),nrow=length(IXR)/length(levels(dat1$days)),byrow=FALSE)
+    MIN=min(mymean_dat_well_time[,ixcol])
+    MAX=max(mymean_dat_well_time[,ixcol])
+    plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(MIN,MAX),ylab=myval,main=j)
+    for(k in c(1:nrow(mat))){
+      points(days,mat[k,],col=cols_treatments[myT],pch=19,cex=1.2)
+      lines(days,mat[k,],col=cols_treatments[myT])
+      if(withSD){error.bar(x=days, y=mat[k,], upper=mats[k,], length=0.05,col=cols_treatments[myT])}
+    }
+    grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+    abline(h=0)
+     myT=myT+1
+  }
+}
+
+
+error.bar <- function(x, y, upper, lower=upper, length=0.1,...){
+  if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+    stop("vectors must be same length")
+  arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+funCl <- function(idx=1,proj,corr,PLOT=FALSE,n0=10){
+  
+  standardize <- function(z){
+    rowmed <- apply(z, 1, mean)
+    rowmad <- apply(z, 1, sd)
+    rv <- sweep(z, 1, rowmed)
+    rv <- sweep(rv, 1, rowmad, "/")
+    return(rv)
+  }
+    
+  #sub2  <- t(standardize(t(cbind(as.numeric(proj[,idx]),as.numeric(corr[,idx])))))
+  sub2  <-  cbind(as.numeric(proj[,idx]),as.numeric(corr[,idx]))
+  km5   <- kmeans(sub2, centers = n0, nstart=25)
+  Lev3  <- levels(as.factor(km5$cluster))
+  Cols  <- c("grey","black","red","blue","green","cyan","magenta","yellow","darkgreen","lightpink")
+  names(Cols)<- Lev3
+  cols3 <- unlist(lapply(km5$cluster,function(x)return(Cols[match(x,names(Cols))])))
+  if(PLOT){  
+  plot(proj[,idx],corr[,idx],col=cols3,pch=19,cex=0.7,xlab="",ylab="")
+  mtext(side=1,line=2,text="proj")
+  mtext(side=2,line=2,text="PCC")
+  mtext(side=3,line=0,text=paste("PC",idx,sep=""))
+  grid()
+  }
+  ix_max<- which(proj[,idx]+corr[,idx]==max(proj[,idx]+corr[,idx]))[1]
+  ix_min<- which(proj[,idx]+corr[,idx]==min(proj[,idx]+corr[,idx]))[1]
+  
+  cl_max <- km5$cluster[ix_max]
+  cl_min <- km5$cluster[ix_min]
+  
+  selmost <- rownames(myCorr)[km5$cluster==cl_max]
+  selmin  <- rownames(myCorr)[km5$cluster==cl_min]
+  
+  return(list(km5,selmost,selmin))
+}
+```
+
+```{r import_data,eval=TRUE,echo=FALSE}
+dat1           <- read.csv("../data/normalised_astro_kelly.csv")#5376 x 65
+dat1$days                    <- factor(as.character(dat1$Day),levels=c("0","1","7","14","21")[-1])
+dat1$group_major            <- factor(paste(dat1$days,dat1$Well,sep="_"))
+dat1$group_minor            <- factor(paste(dat1$days,dat1$Well,dat1$ImageNumber,sep="_"))#plate_well_image_day
+dat1$Cytokine               <- as.character(dat1$Cytokine)
+dat1$Cytokine[dat1$Cytokine=="BMP4 + CNTF"]<- "Both"
+dat1$Treatment              <- factor(as.character(dat1$Cytokine),levels=c("None","CNTF","BMP4","Both"))
+dat1$objectID               <- paste(dat1$days,dat1$Well,dat1$ImageNumber,dat1$ObjectNumber,sep=".")
+mycols_days                 <- c("white",pals("deserve"))
+```
+
+
+
+### 1. Experimental set-up
+iPSC-derived astrocytes were cultured in 96-well plates for 21 days and fluorecent images were taken after 0, 1, 7, 14 and 21 days in culture. The cells were treated with the following three different treatment (except at day 0 where all wells are expected to be the same) were : 
+
+1. **No treatment**: D1-D7.
+1. **CNTF treatment**: A1-A7.
+1. **BMP4 treatment**: B1-B7. 
+1. **CNTF+BMP4 treatment**: C1-C7
+
+Half of the astrocytes were transfected with a GFP under the CMV promoter which provides the highest expression activity in the broadest range of cell types. Only half of the plated cells contain the GFP in order to be able to detect cells. 
+
+
+
+```{r no_images_per_well,eval=TRUE,echo=FALSE}
+no.images.per.well  <- tapply(as.character(dat1$ImageNumber),INDEX=dat1$group_major,function(Z)return(length(unique(Z))))
+```
+
+There are 4 images per well per time-point. Images are overlapping  (about 5\% at the edges) to ensure the appropriate recontruction of the full image. 
+
+### 2. Explore data
+
+#### 2.1 Number of detected cells per wells
+The number of detected object, i.e. astrocytes, per image should in principle stay constant over time since the cells are not undergoing proliferation nor cell death. However as shown in the next figure the number of detected objects per well decreases over time indicating cell death over time. 
+
+```{r number_objects_per_well,echo=FALSE,fig.width=8, fig.height=6,warning=FALSE,eval=TRUE}
+layout(matrix(c(1,1,2,3,4,5),ncol=2,nrow=3,byrow=TRUE),heights = c(0.3,0.35,0.35))
+par(mar=c(1,4,3,1),oma=c(2,2,2,2))
+boxplot(tapply(c(1:nrow(dat1)),INDEX=dat1$days,FUN=function(IX)return(tapply(dat1$ObjectNumber[IX],INDEX=factor(as.character(dat1$group_minor[IX])),FUN=function(Z)return(length(Z))))),las=1,outline=F,frame=F,col=mycols_days,ylim=c(0,40),xaxt="n",main="Overview",ylab="# cells per image")
+grid(ny=NULL,nx=NA,lwd=1.5)
+legend("top",ncol=4,col=mycols_days,leg=paste("d",levels(dat1$days),sep=""),bty="n",pch=15,cex=1.0)
+title(outer=TRUE,font=4,main="Number of cells per image and per time-point",cex.main=1.0,line=1)
+for(LEVS in levels(dat1$Treatment)){
+  subdat <- dat1[dat1$Treatment==LEVS,]
+  boxplot(tapply(c(1:nrow(subdat)),INDEX=subdat$days,FUN=function(IX)return(tapply(subdat$ObjectNumber[IX],INDEX=factor(as.character(subdat$group_minor[IX])),FUN=function(Z)return(length(Z))))),las=1,outline=F,frame=F,col=mycols_days,ylim=c(0,40),xaxt="n",main=LEVS,ylab="# objects per image")
+grid(ny=NULL,nx=NA,lwd=1.5)
+}
+```
+
+The number of cells per image decreases over time indicating potential cell death.
+
+
+```{r number_objects_per_wellp1,fig.width=8, fig.height=14,warning=FALSE,echo=FALSE, message=FALSE, results='hide'}
+no_objects_per_well <- tapply(dat1$objectID,INDEX=dat1$group_major,FUN=function(Z)return(length(Z)))
+temp_dat            <- data.frame(names(no_objects_per_well),do.call(args=lapply(names(no_objects_per_well),function(Z)return(unlist(strsplit(Z,split="_")))),what=rbind),no_objects_per_well)
+colnames(temp_dat)  <- c("ID","days","well","no.object")
+temp_dat$group      <- temp_dat$days
+
+#layout(matrix(c(1:24),ncol=4,nrow=6,byrow=TRUE))
+layout(matrix(c(1:28),ncol=4,nrow=7,byrow=TRUE))
+par(mar=c(1,4,3,1),oma=c(2,2,2,2))
+invisible(tapply(c(1:nrow(temp_dat)),INDEX=temp_dat$well,FUN=function(IX){
+  mp<-barplot(as.vector(tapply(temp_dat$no.object[IX],INDEX=temp_dat$group[IX],FUN=function(Z)return(Z))),beside=TRUE,col=mycols_days,las=1,main=paste(unique(temp_dat$well[IX]),as.character(dat1$Treatment[match(unique(temp_dat$well[IX]),dat1$Well)])),ylim=c(0,max(temp_dat$no.object)))
+  grid(ny=NULL,nx=NA,lwd=1.5)
+  mtext(side=2,line=2,text="# cells per well",cex=0.7)
+}))
+```
+
+#### 2.2 Location of the detected object in the image
+As shows in the next figure, the detected cells are for most located in the upper part of the images, irrespective of the plate.
+
+```{r location_object_in_image_p1,fig.width=8, fig.height=5,warning=FALSE,echo=FALSE, message=FALSE, results='hide'}
+#Location_Center_Y --> in cm? pixels? I guess this is relative to the image not to the well...
+ggplot(dat1, aes(x = Location_Center_X, y = Location_Center_Y)) +
+  geom_point() +
+  xlim(c(min(dat1$Location_Center_X),max(dat1$Location_Center_X))) +
+  ylim(c(min(dat1$Location_Center_Y),max(dat1$Location_Center_Y))) +
+  geom_density_2d() +
+  stat_density_2d(aes(fill = stat(level)), geom = "polygon") +
+  ggtitle("Density of the objects within the images")
+
+#title(outer=TRUE,font=4,main="Density of the objects within the images",cex.main=1.5,line=1)
+```
+
+### 4. Unsupervised data analysis
+We next aimed at performing unsupervised data analysis of the single-cell morphological changes over time in order to 
+
+1. Determine whether the astrocyte morphologies gradually diverge over time in response to the distinct treatments;
+1. Identify morphological features that characterise the divergent trajectories.
+
+#### 4.1 Create data and variable matrices
+In order to perform unsupervised data analysis we first created 2 matrices from the data: 1) the metadata table which contains the fixed effects including days, treatment, plate, well, and image number and 2) the data-table which contain `r nrow(dat1)` rows i.e. unique objects identified in images with  columns containing the different measurements obtained from imaging. Notably in this analysis we will not use the location of the cells. 
+
+```{r create_matrices,fig.width=5, fig.height=5,warning=FALSE,echo=FALSE, message=FALSE, results='hide'}
+laboi          <- c("days","Treatment","Location_Center_X","Location_Center_Y","Well","Metadata_Plate","ImageNumber","group_minor","group_major")
+data           <- dat1[,setdiff(grep(colnames(dat1),pattern="AreaShape"),match(c("AreaShape_Center_X","AreaShape_Center_Y"),colnames(dat1)))]
+metadata       <- dat1
+metadata$group <- factor(paste(metadata$Treatment,metadata$days,sep="_"),levels=unlist(lapply(levels(dat1$Treatment),function(Z)return(paste(Z,levels(dat1$days),sep="_")))))
+```
+
+We next applied log transformation to a selection of continuous variables for which log-normality was tested, this in order to reduce the influence of extreme values or outliers present in skewed data in downstream analysis.
+
+```{r test_normality_data,eval=TRUE,echo=FALSE, message=FALSE}
+testLogNorm <- function(val){
+  if(min(val)<0){
+    return(FALSE)
+  }
+  if(min(val)>=0){
+    val  <- val+min(val[val>0])
+    valt <- log(val)
+    m1   <- lm(quantile(val,probs=seq(0, 1, 0.01))~quantile(rnorm(n=length(val),mean(val),sd(val)),probs=seq(0, 1, 0.01)))
+    m2   <- lm(quantile(valt,probs=seq(0, 1, 0.01))~quantile(rnorm(n=length(valt),mean(valt),sd(valt)),probs=seq(0, 1, 0.01)))
+    return(-anova(m1)$F[1]+anova(m2)$F[1]>10)
+  }
+}
+
+dF        <- unlist(lapply(c(1:ncol(data)),function(ix)return(testLogNorm(data[,ix]))))
+print(colnames(data)[dF])
+dataL <- data
+for(ix in which(dF)){
+  dataL[,ix]<-log(data[,ix]+min(data[data[,ix]>0,ix]))
+}
+```
+
+#### 4.2. Inspect correlation between variables extracted from fluorescent images
+We first aimed to test whether variables are correlating with each other. As we can see in the following figure, which shows the Spearman rank correlation between variables (invariant to log-transformation of the data), the distinct variables associated with shapes are highly correlating with each other, as do the measurements derived from GFP intensities.
+
+```{r correlation_variables_data,fig.width=20, fig.height=16,warning=FALSE,echo=FALSE, message=FALSE, results='hide'}
+par(mar=c(4,4,4,4),mfrow=c(1,1))
+library("corrplot")
+correlation.scores <- round(cor(data,use = "complete.obs",method="spearman"), 2)
+pval               <- cor.mtest(data, conf.level = .99)
+corrplot(correlation.scores, method="circle",type="upper",order="hclust",col=rev(brewer.pal(n=8, name="PuOr")),tl.col="black", tl.srt=45,tl.cex=1.4,diag=FALSE,p.mat = pval$p, insig = "label_sig",sig.level = c(.001, .01), pch.cex = .6, pch.col = "white")
+```
+
+#### 4.3 Singular value decomposition analysis
+As shown in the next figure, the information contained in data is for most captured by the first component even after removing the 'noise'.
+
+```{r prepare_data,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+###On the data-matrix
+data_p1            <- data#dataL
+metadata_p1        <- metadata
+LevGroup           <- unique(paste(metadata_p1$group,metadata_p1$Well,sep="_"))
+LevGroup           <- LevGroup[unlist(lapply(paste(levels(metadata_p1$group),"_",sep=""),function(Z)return(grep(LevGroup,pattern=Z))))]
+metadata_p1$Group  <- factor(paste(metadata_p1$group,metadata_p1$Well,sep="_"),levels=LevGroup)
+
+
+#Average of the MEASUREMENTS across all cells per well at a single time-point
+mymean_dat_well_time        <- apply(data_p1,2,function(Z)return(tapply(Z,INDEX=metadata_p1$Group,FUN=mean)))#mean across cells within each well
+mysd_dat_well_time        <- apply(data_p1,2,function(Z)return(tapply(Z,INDEX=metadata_p1$Group,FUN=mean)))#mean across cells within each well
+
+#Average across all wells per condition per time-point
+metadata_p2             <- metadata_p1[match(rownames(mymean_dat_well_time),metadata_p1$Group),]
+mymean_dat_cond_time        <- apply(mymean_dat_well_time,2,function(Z)return(tapply(Z,INDEX=metadata_p2$group,FUN=median)))#average of the average per well
+mysd_dat_cond_time          <- apply(mymean_dat_well_time,2,function(Z)return(tapply(Z,INDEX=metadata_p2$group,FUN=mad)))
+
+
+cols_treatments        <- c("grey" , "#4682B4", "#82B446", "#7846B4")
+names(cols_treatments) <- levels(metadata_p1$Treatment)
+mycols_days            <- mycols_days[(1:4)]
+names(mycols_days)     <- c(1,7,14,21)
+mycols_time            <- add.alpha(mycols_days[match(metadata_p1$days,names(mycols_days))],alpha=0.05) 
+mycols_treatments      <- add.alpha(cols_treatments[match(metadata_p1$Treatment,names(cols_treatments))],alpha=0.1) 
+```
+
+SVD on the raw data:
+```{r SVD_raw_data,fig.width=10, fig.height=8,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+
+SVD_eset    <- svd(data_p1)
+pi          <- SVD_eset$d*SVD_eset$d/sum(SVD_eset$d*SVD_eset$d)
+d           <- -1*sum(pi*log10(pi))/log10(length(pi))
+
+#Average across all cells per well at a single time-point
+mymean_well_time        <- apply(SVD_eset$u,2,function(Z)return(tapply(Z,INDEX=metadata_p1$Group,FUN=mean)))#mean across cells within each well
+mysd_well_time          <- apply(SVD_eset$u,2,function(Z)return(tapply(Z,INDEX=metadata_p1$Group,FUN=sd)))
+#Average across all wells per condition per time-point
+metadata_p2             <- metadata_p1[match(rownames(mymean_well_time),metadata_p1$Group),]
+mymean_cond_time        <- apply(mymean_well_time,2,function(Z)return(tapply(Z,INDEX=metadata_p2$group,FUN=median)))#average of the average per well
+mysd_cond_time          <- apply(mymean_well_time,2,function(Z)return(tapply(Z,INDEX=metadata_p2$group,FUN=mad)))
+
+
+#Here I plot the average of across all wells as captured by the average across all cells per well
+par(mfrow=c(3,3),mar=c(4,4,2,2))
+for(i in c(1:9)){
+  days=as.numeric(levels(dat1$days))
+  mat  <- matrix(mymean_cond_time[,i],ncol=4,nrow=4,byrow=TRUE)
+  mats <- matrix(mysd_cond_time[,i],ncol=4,nrow=4,byrow=TRUE)
+  plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(min(mat-mats),max(mat+mats)),ylab=paste("PC",i),main=paste(round(100*pi[i],digit=2),"% variance"))
+  abline(h=0)
+  for(j in c(1:4)){
+    points(days,mat[j,],col=cols_treatments[j],pch=19,cex=1.2)
+    lines(days,mat[j,],col=cols_treatments[j])  
+    error.bar(x=days, y=mat[j,], upper=mats[j,], length=0.05,col=cols_treatments[j])
+    if(i==1&j==1){legend("top",ncol=4,pch=18,col=cols_treatments,leg=names(cols_treatments),bty="n")}
+  }
+  grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+}
+
+#mat=matrix(0,ncol=ncol(data_p1),nrow=nrow(data_p1))
+#for(i in c(1:ncol(data_p1))){
+#  mat=mat+SVD_eset$d[i]*(SVD_eset$u[,i]%*%t(SVD_eset$v[,i]))
+#}
+#
+
+```
+
+SVD on the normalised data:
+```{r SVD_norm_data,fig.width=8, fig.height=6,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+#Remvove first component
+datm     <- data_p1-SVD_eset$d[1]*(SVD_eset$u[,1]%*%t(SVD_eset$v[,1]))
+SVD_eset <- svd(datm)
+pip      <- SVD_eset$d*SVD_eset$d/sum(SVD_eset$d*SVD_eset$d)
+dp       <- -1*sum(pip*log10(pip))/log10(length(pip))
+
+myCorr <- matrix(0,ncol=ncol(SVD_eset$v),nrow=ncol(SVD_eset$v))
+for(IX_P in c(1:ncol(SVD_eset$u))){
+  for(IX_F in c(1:ncol(datm))){
+    myCorr[IX_F,IX_P]<- cor(x=datm[,IX_F],y=SVD_eset$u[,IX_P])
+  }
+}
+rownames(myCorr)<-colnames(data_p1)
+
+#Average per well first and then per group (treatment per day)
+LevGroup           <- unique(paste(metadata_p1$group,metadata_p1$Well,sep="_"))
+LevGroup           <- LevGroup[unlist(lapply(paste(levels(metadata_p1$group),"_",sep=""),function(Z)return(grep(LevGroup,pattern=Z))))]
+metadata_p1$Group  <- factor(paste(metadata_p1$group,metadata_p1$Well,sep="_"),levels=LevGroup)
+#Average across all cells per well at a single time-point
+mymean_well_time        <- apply(SVD_eset$u,2,function(Z)return(tapply(Z,INDEX=metadata_p1$Group,FUN=mean)))#mean across cells within each well
+mysd_well_time          <- apply(SVD_eset$u,2,function(Z)return(tapply(Z,INDEX=metadata_p1$Group,FUN=sd)))
+#Average across all wells per condition per time-point
+metadata_p2             <- metadata_p1[match(rownames(mymean_well_time),metadata_p1$Group),]
+mymean_cond_time        <- apply(mymean_well_time,2,function(Z)return(tapply(Z,INDEX=metadata_p2$group,FUN=median)))#average of the average per well
+mysd_cond_time          <- apply(mymean_well_time,2,function(Z)return(tapply(Z,INDEX=metadata_p2$group,FUN=mad)))
+
+
+#pdf("../figures/PCi.pdf")
+#plot the average of across all wells as captured by the average across all cells per well
+par(mfrow=c(3,3),mar=c(4,4,2,2))
+for(i in c(1:9)){
+  days=as.numeric(levels(dat1$days))
+  mat  <- matrix(mymean_cond_time[,i],ncol=4,nrow=4,byrow=TRUE)
+  mats <- matrix(mysd_cond_time[,i],ncol=4,nrow=4,byrow=TRUE)
+  plot(days,mat[1,],col="white",pch=19,cex=1.2,frame=F,las=1,ylim=c(min(mat-mats),max(mat+mats)),ylab=paste("PC",i),main=paste(round(100*pip[i],digit=2),"% variance"))
+  abline(h=0)
+  for(j in c(1:4)){
+    points(days,mat[j,],col=cols_treatments[j],pch=19,cex=1.2)
+    lines(days,mat[j,],col=cols_treatments[j])  
+    error.bar(x=days, y=mat[j,], upper=mats[j,], length=0.05,col=cols_treatments[j])
+    if(i==1&j==1){legend("top",ncol=4,pch=18,col=cols_treatments,leg=names(cols_treatments),bty="n")}
+  }
+  grid(ny=NULL,nx=NA,lwd=1.0,col="grey")
+}
+#dev.off()
+
+```
+
+Let's focus on the replicates of PC1:
+```{r PC1_focus,fig.width=7, fig.height=5,warning=FALSE,echo=FALSE, message=FALSE,eval=TRUE}
+
+PlotPCTime(i=1)
+```
+
+Looking at the scree plots confirm that the firts coomponent captures most of the variance in morphological changes:
+```{r scre_plot,fig.width=8, fig.height=4,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+#pdf("../figures/scree_plots.pdf")
+CEX=1
+par(mfrow=c(1,3),mar=c(4,4,4,4))
+barplot(pi,las=1,main="Before removing component 1",ylim=c(0,1),cex.main=CEX,cex.axis=CEX,col="black")
+mtext(side = 2, line = 2, text ="Fraction of variance captured by PCi", col = "black",cex=CEX-0.2, font=1)
+grid(ny=NULL,nx=NA)
+mtext(side = 3, line = 0, text = paste("Shannon Entropy = ",round(d,digits=3)), col = "black",cex=CEX-0.2, font=3)
+barplot(pip,las=1,main="After removing component 1",ylim=c(0,1),cex.main=CEX,cex.axis=CEX,col="black")
+mtext(side = 3, line = 0, text = paste("Shannon Entropy = ",round(dp,digits=3)), col = "black",cex=CEX-0.2, font=3)
+grid(ny=NULL,nx=NA)
+barplot(pip[c(1:10)],las=1,main="First 10 components",cex.main=CEX,cex.axis=CEX,col="black")
+mtext(side = 3, line = 0, text = paste("Shannon Entropy = ",round(dp,digits=3)), col = "black",cex=CEX-0.2, font=3)
+grid(ny=NULL,nx=NA)
+#dev.off()
+
+```
+
+
+The next figure shows the dynamic over time of each component which can be interpreted as the average cell population trajectories over time; shown are the average and standard deviation of the projections/loadings of each individual cell/astrocytes along the component of interest. The large standard deviations suggest that heterogenous populations of cells are present in each groups according to the measured parameters. This will be further investigated in Section 5 of this document.
+
+
+
+##### 4.3.1 Which component captures the treatment effect over time
+We next aimed to identify what are the cofactors associated with each component. Indeed in the current data-set, we have both the time in culture as well as 3 types of treatments together with their interactions. It is therefore important to determine whether a component is associated with either of these covariates. To do this we iteratively fitted a linear mixed model to the left singular vectors using as random effects the well and image numbers, and as fixed effects the interaction between the treatment and the time in culture. As shown in the next figure, time is a significant explanatory variable for most components, while TNF effect over time associates with the most contributing components (PC1 and PC2). As expected FGF effect is a poor explanatory variable.
+
+```{r linear_mixed_model_time_effect,fig.width=6, fig.height=6,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+myOut_time <- list()#liste of equal length as PCi
+i=0
+j=0
+for(ix_comp in c(1:ncol(SVD_eset$u))){
+  print(ix_comp)
+  myOut_time[[ix_comp]]<- matrix(0,ncol=length(levels(dat1$days))-1,nrow=4)
+ colnames(myOut_time[[ix_comp]]) <- levels(dat1$days)[-1]
+ rownames(myOut_time[[ix_comp]]) <- levels(dat1$Treatment)
+ for(ix_treat in levels(dat1$Treatment)){
+  i=i+1
+  for (ix_time in levels(dat1$days)[-1]){
+    print(ix_time)
+      j=j+1
+      mysel                  <- which(dat1$days%in%c("1",ix_time)&dat1$Treatment==ix_treat)
+      tempdat                <- data.frame(PC=SVD_eset$u[mysel,ix_comp],dat1[mysel,])
+      m1.full                <- lmer(PC~1+days+(1|Well), data = tempdat)
+      m1.null                <- lmer(PC~1+(1|Well), data = tempdat)
+      tempdat=data.frame(anova(m1.null,m1.full))
+      tempdat2=data.frame(coef(summary(m1.full)))
+      myOut_time[[ix_comp]][i,j]<-  -log10(tempdat['m1.full','Pr..Chisq.'] )
+  }
+  j=0
+ }
+ i=0
+}
+
+
+myPvalues_time <- list(None=do.call(what=rbind,args=lapply(myOut_time,function(Z)return(Z[1,]))),
+                       CNTF=do.call(what=rbind,args=lapply(myOut_time,function(Z)return(Z[2,]))),
+                       BMP4=do.call(what=rbind,args=lapply(myOut_time,function(Z)return(Z[3,]))),
+                       BOTH=do.call(what=rbind,args=lapply(myOut_time,function(Z)return(Z[4,]))))
+
+
+
+
+
+#pdf("../figures/effect_condition_LMM.pdf")
+myF<-c(1:15)
+#mat                 <- do.call(what=cbind,args=lapply(myPvalues_time,function(Z)return(Z[myF,])))
+#colnames(mat)       <- unlist(lapply(names(cols_treatments),function(Z)return(paste(Z,c("7","14","21"),sep="-"))))
+mat                 <- do.call(what=cbind,args=lapply(myPvalues_time,function(Z)return(apply(Z[myF,],1,max))))
+rownames(mat)       <- paste("PC",c(1:nrow(mat)))
+dd                  <- as.matrix(dist(mat,method="man"))
+diag(dd)            <- 0
+dd.row              <- as.dendrogram(hclust(as.dist(dd),method="ward.D"))
+row.ord             <- order.dendrogram(dd.row)
+dd.col              <- as.dendrogram(hclust(as.dist(as.matrix(dist(t(mat),method="man"))),method="ward.D"))
+col.ord             <- order.dendrogram(dd.col)
+mypalette           <-  colorRampPalette(colors=c("white",rgb(136/255,198/255,91/255),rgb(0,175/255,113/255),rgb(0,172/255,179/255)), bias = 1, space = c("rgb"), interpolate = c("linear"))
+mypalette           <-  colorRampPalette(colors=c("white","black"), bias = 1, space = c("rgb"), interpolate = c("linear"))
+mycols              <-  mypalette(n=100)
+b                   <-  seq(from=0,to=max(abs(mat)),length.out=101)
+heatmap.2(mat, keysize=1,mar=c(10,15),col=mycols,breaks=b, scale="none",Rowv=dd.row,Colv="none",key=TRUE,symkey=FALSE, density.info="none", trace="none",cexCol=0.5, cexRow=0.5, font.lab=1)
+#dev.off()
+```
+
+
+
+Next we can focus on PC1,2 and 5: 
+
+```{r linear_mixed_model_time_effect_2,fig.width=6, fig.height=6,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+
+#cols_points <- cols_treatments[match(dat1$Treatment,names(cols_treatments))]
+#par(mfrow=c(1,1))
+#plot(SVD_eset$u[dat1$Day==21,1],SVD_eset$u[dat1$Day==21,2],pch=19,cex=0.2,col=cols_points[dat1$Day==21])
+
+myvals_OI<- lapply(c(1,2,5),function(Z)return(funCl(idx=Z,proj=SVD_eset$v,corr=myCorr,PLOT=FALSE,n0=5)))
+#pdf("./figures/mesurements_contributions_PCI.pdf")
+mymeasurements<-unique(unlist(lapply(myvals_OI[c(1,2,3)],function(Z)return(unlist(Z[c(2,3)])))))
+myCorr_oi <- myCorr[which(rownames(myCorr)%in%mymeasurements),c(1,2,5)]
+myProj_oi <- SVD_eset$v[which(rownames(myCorr)%in%mymeasurements),c(1,2,5)]
+mat                 <- as.matrix(myCorr_oi)
+colnames(mat)       <- paste("PC",c(1,2,5))
+rownames(mat)       <- gsub(rownames(mat),pattern="AreaShape_",repl="")
+dd                  <- as.matrix(dist(mat,method="man"))
+diag(dd)            <- 0
+dd.row              <- as.dendrogram(hclust(as.dist(dd),method="ward.D"))
+row.ord             <- order.dendrogram(dd.row)
+dd.col              <- as.dendrogram(hclust(as.dist(as.matrix(dist(t(mat),method="man"))),method="ward.D"))
+col.ord             <- order.dendrogram(dd.col)
+#mypalette           <-  colorRampPalette(colors=c(rgb(0,172/255,179/255),"white","magenta"), bias = 1, space = c("rgb"), interpolate = c("linear"))
+mypalette           <-  colorRampPalette(colors=c("#82B446","white","#7846B4"), bias = 1, space = c("rgb"), interpolate = c("linear"))
+mycols              <-  mypalette(n=100)
+b                   <-  seq(from=-(max(abs(mat))),to=max(abs(mat)),length.out=101)
+heatmap.2(mat, keysize=1,mar=c(5,15),col=mycols,breaks=b, scale="none",Rowv=dd.row,Colv="none",key=TRUE,symkey=FALSE, density.info="none", trace="none",cexCol=0.5, cexRow=0.5, font.lab=1)
+#dev.off()
+```
+
+
+
+
+Finally we can look into the individual measurements:
+
+```{r look_into_individual_measurements,fig.width=10, fig.height=10,warning=FALSE,echo=FALSE, message=FALSE, results='hide',eval=TRUE}
+#pdf("../figures/individual_measurements.pdf")
+par(mfrow=c(4,4),mar=c(4,4,2,1))
+PlotMeasurementsLines(myval="AreaShape_Perimeter")
+PlotMeasurementsLines(myval="AreaShape_Compactness")
+PlotMeasurementsLines(myval="AreaShape_MedianRadius")
+PlotMeasurementsLines(myval="AreaShape_Extent")
+PlotMeasurementsLines(myval="AreaShape_EulerNumber")
+#dev.off()
+
+
+```
